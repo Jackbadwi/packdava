@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">پک دوا</string>
+    <string name="title_activity_main">پک دوا</string>
+    <string name="package_name">ir.pakdava.app</string>
+    <string name="custom_url_scheme">ir.pakdava.app</string>
+</resources>

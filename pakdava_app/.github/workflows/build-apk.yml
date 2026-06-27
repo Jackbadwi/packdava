@@ -1,0 +1,96 @@
+name: Build PakDava APK
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      # ── ۱. Checkout ──────────────────────────────────────────────
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ── ۲. Node.js ───────────────────────────────────────────────
+      - name: Setup Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      # ── ۳. Java 17 ───────────────────────────────────────────────
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      # ── ۴. Android SDK ───────────────────────────────────────────
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      # ── ۵. Install deps ──────────────────────────────────────────
+      - name: Install dependencies
+        run: npm ci
+
+      # ── ۶. Build React app ───────────────────────────────────────
+      - name: Build React/Vite
+        run: npm run build
+
+      # ── ۷. Capacitor sync ────────────────────────────────────────
+      - name: Install Capacitor CLI
+        run: npm install -g @capacitor/cli
+
+      - name: Capacitor sync
+        run: npx cap sync android
+
+      # ── ۸. Create keystore از secrets ────────────────────────────
+      - name: Decode keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/pakdava.keystore
+
+      # ── ۹. Build APK ─────────────────────────────────────────────
+      - name: Build Release APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease \
+            -Pandroid.injected.signing.store.file=app/pakdava.keystore \
+            -Pandroid.injected.signing.store.password=${{ secrets.KEYSTORE_PASSWORD }} \
+            -Pandroid.injected.signing.key.alias=${{ secrets.KEY_ALIAS }} \
+            -Pandroid.injected.signing.key.password=${{ secrets.KEY_PASSWORD }}
+
+      # ── ۱۰. Upload APK ───────────────────────────────────────────
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pakdava-release-apk
+          path: android/app/build/outputs/apk/release/app-release.apk
+          retention-days: 30
+
+      # ── ۱۱. Create Release (فقط در push به main) ─────────────────
+      - name: Create GitHub Release
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ github.run_number }}
+          name: PakDava v${{ github.run_number }}
+          body: |
+            ## پک دوا — نسخه اندروید
+            ساخته‌شده توسط GitHub Actions
+            
+            ### نصب
+            فایل `app-release.apk` را دانلود و روی گوشی اندروید نصب کنید.
+            
+            ### تغییرات
+            ${{ github.event.head_commit.message }}
+          files: android/app/build/outputs/apk/release/app-release.apk
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
