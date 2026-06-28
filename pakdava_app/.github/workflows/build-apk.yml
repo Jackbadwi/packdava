@@ -1,0 +1,82 @@
+name: Build APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Navigate to project directory
+      run: |
+        ls -la
+        cd pakdava_app
+        pwd
+        ls -la
+        
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+        
+    - name: Install dependencies
+      run: |
+        cd pakdava_app
+        npm install
+      
+    - name: Build project
+      run: |
+        cd pakdava_app
+        npm run build
+      
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'zulu'
+        java-version: '17'
+        
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+      
+    - name: Install Capacitor
+      run: |
+        cd pakdava_app
+        npm install -g @capacitor/cli
+        npm install @capacitor/core @capacitor/android
+      
+    - name: Initialize Capacitor
+      run: |
+        cd pakdava_app
+        npx cap init Pakdava com.pakdava.app --web-dir=dist
+      
+    - name: Add Android
+      run: |
+        cd pakdava_app
+        npx cap add android
+      
+    - name: Sync Android
+      run: |
+        cd pakdava_app
+        npx cap sync android
+      
+    - name: Decode Keystore
+      run: |
+        cd pakdava_app
+        echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > pakdava.keystore
+        
+    - name: Build APK
+      run: |
+        cd pakdava_app/android
+        chmod +x gradlew
+        ./gradlew assembleDebug
+        
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: pakdava-debug
+        path: pakdava_app/android/app/build/outputs/apk/debug/*.apk
