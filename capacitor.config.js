@@ -1,5 +1,5 @@
 const config = {
-  appId:   'ir.pakdava.app',
+  appId:   'com.packdava.app',
   appName: 'پک دوا',
   webDir:  'dist',
   server: {

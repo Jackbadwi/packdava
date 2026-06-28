@@ -1,4 +1,4 @@
-package ir.pakdava.app;
+package com.packdava.app;
 
 import android.os.Bundle;
 import android.util.Log;
