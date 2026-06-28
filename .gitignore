@@ -1,0 +1,27 @@
+# Node
+node_modules/
+npm-debug.log
+dist/
+build/
+
+# Capacitor
+android/.gradle/
+android/app/build/
+android/app/release.keystore
+android/local.properties
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+.env.local
+
+# Logs
+*.log

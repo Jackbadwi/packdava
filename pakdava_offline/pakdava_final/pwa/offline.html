@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="manifest" href="../manifest.json">
+<meta name="theme-color" content="#1A7A4A">
+<title>آفلاین | پک دوا</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;700;800&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Vazirmatn',Tahoma,sans-serif;background:#F0F4F8;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;direction:rtl}
+.card{background:#fff;border-radius:20px;padding:36px 28px;text-align:center;max-width:380px;width:100%;box-shadow:0 8px 40px rgba(0,0,0,.12)}
+.icon{font-size:64px;margin-bottom:16px}
+h1{font-size:22px;font-weight:800;color:#212529;margin-bottom:10px}
+p{font-size:13px;color:#6C757D;line-height:1.7;margin-bottom:20px}
+.btn{display:block;width:100%;padding:13px;background:#1A7A4A;color:#fff;border:none;border-radius:10px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;text-decoration:none;margin-bottom:10px;transition:background .2s}
+.btn:hover{background:#0D5C36}
+.btn-outline{background:none;border:1.5px solid #DEE2E6;color:#495057}
+.status-box{margin-top:16px;padding:12px;background:#F8F9FA;border-radius:10px;font-size:12px;color:#6C757D}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#E74C3C;margin-left:6px;animation:pulse 1.5s infinite}
+.pending-item{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #F1F3F4;font-size:12px}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.quick-links{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px}
+.ql{padding:10px;background:#F8F9FA;border-radius:8px;text-decoration:none;color:#495057;font-size:12px;font-weight:600;border:1.5px solid #E9ECEF;transition:all .2s}
+.ql:hover{border-color:#1A7A4A;color:#1A7A4A}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="icon">📡</div>
+  <h1>حالت آفلاین</h1>
+  <p>اتصال به سرور برقرار نیست.<br>صفحات کش‌شده و داده‌های ذخیره‌شده در دسترس هستند.<br>هنگام اتصال مجدد، همه داده‌ها خودکار همگام می‌شوند.</p>
+
+  <button class="btn" onclick="tryOnline()">🔄 تلاش مجدد</button>
+  <button class="btn btn-outline" onclick="goBack()">← بازگشت</button>
+
+  <div class="quick-links">
+    <a href="../patient/dashboard.php" class="ql">🏠 داشبورد</a>
+    <a href="../patient/daily_plan.php" class="ql">📋 برنامه امروز</a>
+    <a href="../patient/clinical_data.php" class="ql">🧪 ثبت داده</a>
+    <a href="../patient/notifications.php" class="ql">🔔 اعلانات</a>
+  </div>
+
+  <div class="status-box">
+    <div style="display:flex;align-items:center;margin-bottom:8px">
+      <span class="dot"></span>
+      <strong>وضعیت: آفلاین</strong>
+    </div>
+    <div id="pending-info" style="color:#6C757D">در حال بررسی داده‌های آفلاین...</div>
+  </div>
+</div>
+
+<script>
+window.addEventListener('online', () => location.replace(document.referrer || '../patient/dashboard.php'));
+
+function tryOnline() {
+  if (navigator.onLine) {
+    location.replace(document.referrer || '../patient/dashboard.php');
+  } else {
+    document.querySelector('p').textContent = 'هنوز اتصال برقرار نشده. لطفاً اینترنت را بررسی کنید.';
+  }
+}
+
+function goBack() {
+  if (history.length > 1) history.back();
+  else location.replace('../patient/dashboard.php');
+}
+
+// نمایش داده‌های آفلاین از IndexedDB
+if ('indexedDB' in window) {
+  const r = indexedDB.open('PakDavaDB', 5);
+  r.onsuccess = () => {
+    const db = r.result;
+    const info = document.getElementById('pending-info');
+    const queues = ['clinical_queue','soc_queue','daily_queue','risk_queue'];
+    let html = '';
+    let done = 0;
+    let totalPending = 0;
+    let totalCached = 0;
+
+    function finish() {
+      if (++done < queues.length + 2) return;
+      if (totalPending > 0) {
+        html += `<div class="pending-item"><span>⏳ در انتظار همگام‌سازی</span><strong style="color:#E74C3C">${totalPending} رکورد</strong></div>`;
+      }
+      if (totalCached > 0) {
+        html += `<div class="pending-item"><span>💾 داده کش‌شده</span><strong style="color:#1A7A4A">${totalCached} رکورد</strong></div>`;
+      }
+      info.innerHTML = html || 'همه داده‌ها همگام هستند ✓';
+    }
+
+    queues.forEach(store => {
+      if (!db.objectStoreNames.contains(store)) { finish(); return; }
+      const tx = db.transaction(store,'readonly');
+      const req = tx.objectStore(store).getAll();
+      req.onsuccess = () => {
+        totalPending += (req.result||[]).filter(r=>r.synced===0).length;
+        finish();
+      };
+      req.onerror = finish;
+    });
+
+    // بررسی داده کش‌شده
+    ['clinical_data','daily_plans'].forEach(store => {
+      if (!db.objectStoreNames.contains(store)) { finish(); return; }
+      const tx = db.transaction(store,'readonly');
+      const req = tx.objectStore(store).count();
+      req.onsuccess = () => { totalCached += req.result||0; finish(); };
+      req.onerror = finish;
+    });
+  };
+}
+</script>
+</body>
+</html>
