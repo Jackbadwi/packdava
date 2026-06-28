@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.DS_Store
+*.keystore
+*.jks
+.env
+.env.local
+android/.gradle
+android/build
+android/app/build
+android/app/release.keystore
+ios/
